@@ -1,0 +1,50 @@
+[
+  {
+    "ContainingType": "ZatcaIntegrationApi.Controllers.ZatcaController",
+    "Method": "GenerateCsr",
+    "RelativePath": "api/zatca/generate-csr",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "request",
+        "Type": "ZatcaIntegrationApi.Models.CsrRequest",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "ZatcaIntegrationApi.Controllers.ZatcaController",
+    "Method": "ProcessInvoice",
+    "RelativePath": "api/zatca/process-invoice",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "request",
+        "Type": "ZatcaIntegrationApi.Models.InvoiceProcessingRequest",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "ZatcaIntegrationApi.Controllers.ZatcaController",
+    "Method": "ValidateInvoice",
+    "RelativePath": "api/zatca/validate-invoice",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "request",
+        "Type": "ZatcaIntegrationApi.Models.InvoiceValidationRequest",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  }
+]
