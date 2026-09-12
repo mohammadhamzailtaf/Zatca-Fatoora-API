@@ -1,4 +1,5 @@
-﻿using System.Text;
+using System.Reflection;
+using System.Text;
 using System.Xml;
 using Zatca.EInvoice.SDK;
 using Zatca.EInvoice.SDK.Contracts.Models;
@@ -29,9 +30,8 @@ namespace ZatcaIntegrationApi.Services
 
             document.LoadXml(request.Xml);
 
-            string certificate = DecodeCertificate(
-                request.Certificate
-            );
+            string certificate =
+                DecodeCertificate(request.Certificate);
 
             EInvoiceValidator validator =
                 new EInvoiceValidator();
@@ -66,7 +66,10 @@ namespace ZatcaIntegrationApi.Services
                             step.ErrorMessages,
 
                         warnings =
-                            step.WarningMessages
+                            step.WarningMessages,
+
+                        diagnostics =
+                            GetDiagnostics(step)
                     })
                     .ToList();
 
@@ -78,6 +81,52 @@ namespace ZatcaIntegrationApi.Services
                 validationSteps =
                     steps
             };
+        }
+
+        private static Dictionary<string, string> GetDiagnostics(
+            object step)
+        {
+            Dictionary<string, string> result =
+                new Dictionary<string, string>();
+
+            if (step == null)
+                return result;
+
+            PropertyInfo[] properties =
+                step.GetType().GetProperties(
+                    BindingFlags.Public |
+                    BindingFlags.Instance
+                );
+
+            foreach (PropertyInfo property in properties)
+            {
+                try
+                {
+                    object? value =
+                        property.GetValue(step);
+
+                    if (value == null)
+                        continue;
+
+                    if (value is Exception exception)
+                    {
+                        result[property.Name] =
+                            exception.ToString();
+                    }
+                    else
+                    {
+                        result[property.Name] =
+                            value.ToString() ?? string.Empty;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    result[property.Name] =
+                        ex.Message;
+                }
+            }
+
+            return result;
         }
 
         private string DecodeCertificate(
