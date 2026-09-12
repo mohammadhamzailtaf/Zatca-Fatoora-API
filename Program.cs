@@ -1,5 +1,9 @@
 using ZatcaIntegrationApi.Services;
 
+Directory.SetCurrentDirectory(
+    AppContext.BaseDirectory
+);
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
