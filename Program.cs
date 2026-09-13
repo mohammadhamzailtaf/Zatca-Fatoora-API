@@ -13,6 +13,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddScoped<ZatcaCertificateService>();
 builder.Services.AddScoped<ZatcaInvoiceValidationService>();
 builder.Services.AddScoped<ZatcaInvoiceProcessingService>();
+builder.Services.AddScoped<ZatcaInvoiceSigningService>();
 
 var app = builder.Build();
 
