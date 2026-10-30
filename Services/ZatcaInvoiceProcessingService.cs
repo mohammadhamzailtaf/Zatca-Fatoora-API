@@ -50,14 +50,6 @@ namespace ZatcaIntegrationApi.Services
             if (!isSimplified)
             {
                 PrepareStandardInvoiceForClearance(document);
-
-                return new
-                {
-                    isProcessed = false,
-                    invoiceType = "Standard",
-                    diagnosticVersion = "STANDARD-QR-FIX-V2",
-                    qrReferenceCount = GetQrReferenceCount(document)
-                };
             }
 
             if (isSimplified)
