@@ -1,5 +1,8 @@
+
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Xml;
@@ -30,7 +33,8 @@ namespace ZatcaIntegrationApi.Services
 
             XmlDocument document = new XmlDocument
             {
-                PreserveWhitespace = true
+                PreserveWhitespace = true,
+                XmlResolver = null
             };
 
             document.LoadXml(request.Xml);
@@ -44,7 +48,17 @@ namespace ZatcaIntegrationApi.Services
                 IsSimplifiedInvoice(document);
 
             if (!isSimplified)
+            {
                 PrepareStandardInvoiceForClearance(document);
+
+                return new
+                {
+                    isProcessed = false,
+                    invoiceType = "Standard",
+                    diagnosticVersion = "STANDARD-QR-FIX-V2",
+                    qrReferenceCount = GetQrReferenceCount(document)
+                };
+            }
 
             if (isSimplified)
             {
@@ -81,11 +95,11 @@ namespace ZatcaIntegrationApi.Services
                 if (requestResult.InvoiceRequest == null)
                 {
                     string debugInfo =
-                        GetRequestResultDebugInfo(
-                            requestResult);
+                        GetRequestResultDebugInfo(requestResult);
 
                     throw new InvalidOperationException(
-                        $"ZATCA SDK returned an empty InvoiceRequest for the simplified invoice. RequestResult: {debugInfo}");
+                        "ZATCA SDK returned an empty InvoiceRequest " +
+                        $"for the simplified invoice. RequestResult: {debugInfo}");
                 }
 
                 return new
@@ -164,7 +178,9 @@ namespace ZatcaIntegrationApi.Services
                         standardRequestResult);
 
                 throw new InvalidOperationException(
-                    $"ZATCA SDK returned an empty InvoiceRequest after the invoice hash was generated successfully. RequestResult: {debugInfo}");
+                    "ZATCA SDK returned an empty InvoiceRequest " +
+                    "after the invoice hash was generated successfully. " +
+                    $"RequestResult: {debugInfo}");
             }
 
             standardRequestResult.InvoiceRequest.InvoiceHash =
@@ -183,7 +199,8 @@ namespace ZatcaIntegrationApi.Services
             };
         }
 
-        private static void PrepareStandardInvoiceForClearance(XmlDocument document)
+        private static void PrepareStandardInvoiceForClearance(
+            XmlDocument document)
         {
             XmlNamespaceManager namespaceManager =
                 new XmlNamespaceManager(document.NameTable);
@@ -196,15 +213,40 @@ namespace ZatcaIntegrationApi.Services
                 "cbc",
                 "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2");
 
-            XmlNodeList? qrReferences = document.SelectNodes(
-                "/*[local-name()='Invoice']/cac:AdditionalDocumentReference[cbc:ID='QR']",
-                namespaceManager);
+            XmlNodeList? qrReferences =
+                document.SelectNodes(
+                    "/*[local-name()='Invoice']/cac:AdditionalDocumentReference[cbc:ID='QR']",
+                    namespaceManager);
 
             if (qrReferences == null)
                 return;
 
             foreach (XmlNode qrReference in qrReferences)
+            {
                 qrReference.ParentNode?.RemoveChild(qrReference);
+            }
+        }
+
+        private static int GetQrReferenceCount(
+            XmlDocument document)
+        {
+            XmlNamespaceManager namespaceManager =
+                new XmlNamespaceManager(document.NameTable);
+
+            namespaceManager.AddNamespace(
+                "cac",
+                "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2");
+
+            namespaceManager.AddNamespace(
+                "cbc",
+                "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2");
+
+            XmlNodeList? qrReferences =
+                document.SelectNodes(
+                    "/*[local-name()='Invoice']/cac:AdditionalDocumentReference[cbc:ID='QR']",
+                    namespaceManager);
+
+            return qrReferences?.Count ?? 0;
         }
 
         private static string GetRequestResultDebugInfo(
@@ -234,12 +276,10 @@ namespace ZatcaIntegrationApi.Services
 
                 foreach (var step in requestResult.Steps)
                 {
-                    var stepValues =
-                        new List<string>();
+                    var stepValues = new List<string>();
 
                     var stepProperties =
-                        step.GetType()
-                            .GetProperties();
+                        step.GetType().GetProperties();
 
                     foreach (var property in stepProperties)
                     {
@@ -283,8 +323,7 @@ namespace ZatcaIntegrationApi.Services
 
                             if (value is IEnumerable enumerable)
                             {
-                                var items =
-                                    new List<string>();
+                                var items = new List<string>();
 
                                 foreach (var item in enumerable)
                                 {
@@ -305,8 +344,7 @@ namespace ZatcaIntegrationApi.Services
                                     }
 
                                     items.Add(
-                                        item.ToString() ??
-                                        "null");
+                                        item.ToString() ?? "null");
                                 }
 
                                 stepValues.Add(
@@ -335,28 +373,23 @@ namespace ZatcaIntegrationApi.Services
             parts.Add(
                 $"InvoiceRequest={(requestResult.InvoiceRequest == null ? "null" : "not-null")}");
 
-            return string.Join(
-                " | ",
-                parts);
+            return string.Join(" | ", parts);
         }
 
         private static bool IsSimplifiedInvoice(
             XmlDocument document)
         {
             XmlNamespaceManager namespaceManager =
-                new XmlNamespaceManager(
-                    document.NameTable);
+                new XmlNamespaceManager(document.NameTable);
 
             namespaceManager.AddNamespace(
                 "cbc",
-                "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2"
-            );
+                "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2");
 
             XmlNode? invoiceTypeCode =
                 document.SelectSingleNode(
                     "//cbc:InvoiceTypeCode",
-                    namespaceManager
-                );
+                    namespaceManager);
 
             if (invoiceTypeCode == null)
                 throw new ArgumentException(
@@ -366,13 +399,38 @@ namespace ZatcaIntegrationApi.Services
                 invoiceTypeCode.Attributes?["name"];
 
             if (nameAttribute == null ||
-                string.IsNullOrWhiteSpace(
-                    nameAttribute.Value))
+                string.IsNullOrWhiteSpace(nameAttribute.Value))
+            {
                 throw new ArgumentException(
                     "InvoiceTypeCode name attribute is missing.");
+            }
 
-            return nameAttribute.Value
-                .StartsWith("02");
+            string invoiceTypeName =
+                nameAttribute.Value.Trim();
+
+            if (invoiceTypeName.Length != 7 ||
+                !invoiceTypeName.All(char.IsDigit))
+            {
+                throw new ArgumentException(
+                    $"Invalid ZATCA invoice subtype: {invoiceTypeName}");
+            }
+
+            if (invoiceTypeName.StartsWith(
+                "02",
+                StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            if (invoiceTypeName.StartsWith(
+                "01",
+                StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            throw new ArgumentException(
+                $"Unsupported ZATCA invoice subtype: {invoiceTypeName}");
         }
 
         private static string DecodeCertificate(
@@ -399,18 +457,19 @@ namespace ZatcaIntegrationApi.Services
             XmlDocument formattedXml =
                 new XmlDocument
                 {
-                    PreserveWhitespace = true
+                    PreserveWhitespace = true,
+                    XmlResolver = null
                 };
 
             using MemoryStream memoryStream =
                 new MemoryStream();
 
             using (StreamWriter streamWriter =
-                   new StreamWriter(
-                       memoryStream,
-                       new UTF8Encoding(false),
-                       1024,
-                       true))
+                new StreamWriter(
+                    memoryStream,
+                    new UTF8Encoding(false),
+                    1024,
+                    true))
             {
                 XmlWriterSettings settings =
                     new XmlWriterSettings
